@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>random_isa</ToolCommandName>
+    <RootNamespace>RandomISA</RootNamespace>
+    <AssemblyName>RandomISA</AssemblyName>
+    <Name>RandomISA</Name>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Authors>Jonathan Ott</Authors>
+    <Description>Random ISA-JSON assay generator</Description>
+    <Summary>Random ISA-JSON proteomics assay generator</Summary>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Joott/RandomISA</PackageProjectUrl>
+    <PackageTags>fsharp dotnet ISA proteomics</PackageTags>
+    <RepositoryUrl>https://github.com/Joott/RandomISA</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <FsDocsLicenseLink>https://github.com/Joott/RandomISA/blob/main/LICENSE</FsDocsLicenseLink>
+    <FsDocsReleaseNotesLink>https://github.com/Joott/RandomISA/blob/main/RELEASE_NOTES.md</FsDocsReleaseNotesLink>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Library.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Data" Version="4.1.1" />
+    <PackageReference Include="FSharp.Stats" Version="0.4.1" />
+    <PackageReference Include="ISADotNet" Version="0.2.5" />
+    <PackageReference Include="ISADotNet.XLSX" Version="0.2.5" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+</Project>
