@@ -97,6 +97,14 @@ module RandomISA =
     let createParameterValues (parameter: ProtocolParameter) (value: Value option) (unitOntology: OntologyAnnotation option)=
             ProcessParameterValue.create  (Some parameter) value unitOntology
 
+    let updateParameterValue (name: string) (value: Value option) (paramValues: ProcessParameterValue list) =
+        paramValues
+        |> List.map (fun x ->
+            if x.Category.Value.NameAsString = name then
+                {x with Value = value}
+            else x
+        )
+
     let createProtocol (parameters: ProtocolParameter list) =
         Protocol.create None None None None None None (Some parameters) None None
     
@@ -162,7 +170,7 @@ module RandomISA =
                         (createParameter pInfo),
                         createParameterValues
                             (createParameter pInfo)
-                            (Value.fromOptions (Some (getRandomWithRange 10. 50.)) (None) (None))
+                            (Value.fromOptions (Some (random.Next(10, 50) |> string)) (None) (None))
                             (Some (OntologyAnnotation.fromString unit.Name unit.TermAccessionNumber unit.TermSourceRef))
                     | "pH" ->
                         (createParameter pInfo),
@@ -283,95 +291,116 @@ module RandomISA =
                 
         protocol, parameterValues, characteristicValues, factorValues
 
-    let createRandomAssay (files: string []) (min: int) (max: int) path =
+    let createRandomAssay (files: string []) (min: int) (max: int) (technicalReplicates: int) path =
         let random = new System.Random()
-        let selectedFiles =
+        let partitionedFiles =
             files
             |> Array.shuffleFisherYates
-            |> Array.take (random.Next(min,max))
-        let samplePrepProtocol, samplePrepParamVal, samplePrepCharVal, samplePrepFactorVal =
-            createRandomValues proteomicsSamplePreparation
-        let extractionProtocol, extractionParamVal, extractionCharVal, extractionFactorVal =
-            createRandomValues proteomicsExtraction
-        let measurementProtocol, measurementParamVal, measurementCharVal, measurementFactorVal =
-            createRandomValues proteomicsMeasurement
-        let dataProcessingProtocol, dataProcessingParamVal, dataProcessingCharVal, dataProcessingFactorVal =
-            createRandomValues proteomicsDataProcessing
-        let samplePrepProcess =
-            let input,output =
-                [|1 .. selectedFiles.Length|]
-                |> Array.map (fun i ->
-                    let factorVal =
-                        match samplePrepFactorVal with
-                        | Some value -> Some [value.[i-1]]
-                        | None -> None
-                    let processInput =
-                        ProcessInput.Sample (Sample.create None (Some (sprintf "SamplePrepIn_%i" i)) (Some samplePrepCharVal) None None)
-                    let processOutput =
-                        ProcessOutput.Sample (Sample.create None (Some (sprintf "SamplePrepOut_ExtractionIn_%i" i)) (Some samplePrepCharVal) factorVal None)
-                    processInput, processOutput
+            |> Array.chunkBySize technicalReplicates
+            |> Array.filter (fun x -> x.Length = technicalReplicates)
+            |> Array.splitInto (random.Next(min,max))
+        partitionedFiles
+        |> Array.map (fun set ->
+            let samplePrepProtocol, samplePrepParamVal, samplePrepCharVal, samplePrepFactorVal =
+                createRandomValues proteomicsSamplePreparation
+            let extractionProtocol, extractionParamVal, extractionCharVal, extractionFactorVal =
+                createRandomValues proteomicsExtraction
+            let measurementProtocol, measurementParamVal, measurementCharVal, measurementFactorVal =
+                createRandomValues proteomicsMeasurement
+            let dataProcessingProtocol, dataProcessingParamVal, dataProcessingCharVal, dataProcessingFactorVal =
+                createRandomValues proteomicsDataProcessing
+            let samplePrepProcess =
+                let input,output =
+                    [|1 .. set.Length|]
+                    |> Array.map (fun i ->
+                        let factorVal =
+                            match samplePrepFactorVal with
+                            | Some value -> Some [value.[i-1]]
+                            | None -> None
+                        let processInput =
+                            ProcessInput.Sample (Sample.create None (Some (sprintf "SamplePrepIn_%i" i)) (Some samplePrepCharVal) None None)
+                        let processOutput =
+                            ProcessOutput.Sample (Sample.create None (Some (sprintf "SamplePrepOut_ExtractionIn_%i" i)) (Some samplePrepCharVal) factorVal None)
+                        processInput, processOutput
+                    )
+                    |> List.ofArray
+                    |> List.unzip
+                Process.create None None (Some samplePrepProtocol) (Some samplePrepParamVal) None None None None (Some input) (Some output) None
+            let extractionProcess =
+                let input,output =
+                    [|1 .. set.Length|]
+                    |> Array.map (fun i ->
+                        let factorVal =
+                            match extractionFactorVal with
+                            | Some value -> Some [value.[i-1]]
+                            | None -> None
+                        let processInput =
+                            ProcessInput.Sample (Sample.create None (Some (sprintf "SamplePrepOut_ExtractionIn_%i" i)) (Some extractionCharVal) None None)
+                        let processOutput =
+                            ProcessOutput.Sample (Sample.create None (Some (sprintf "ExtractionOut_MeasurementIn_%i" i)) (Some extractionCharVal) factorVal None)
+                        processInput, processOutput
+                    )
+                    |> List.ofArray
+                    |> List.unzip
+                Process.create None None (Some extractionProtocol) (Some extractionParamVal) None None None None (Some input) (Some output) None
+            let measurementProcess =
+                let inputs =
+                    [|1 .. set.Length|]
+                    |> Array.map (fun i ->
+                        let factorVal =
+                            match measurementFactorVal with
+                            | Some value -> Some [value.[i-1]]
+                            | None -> None
+                        let processInput =
+                            ProcessInput.Sample (Sample.create None (Some (sprintf "ExtractionOut_MeasurementIn_%i" i)) (Some measurementCharVal) None None)
+                        processInput, factorVal
+                    )
+                let inputOutput =
+                    [|1 ..  technicalReplicates|]
+                    |> Array.map (fun i ->
+                        inputs
+                        |> Array.mapi (fun j (input,factorVal) ->
+                            input,
+                            ProcessOutput.Sample (Sample.create None (Some (sprintf "MeasurementOut_ProcessingIn_%i" ((i-1)*inputs.Length+j+1))) (Some measurementCharVal) factorVal None)
+                        )
+                        |> List.ofArray
+                        |> List.unzip
+                    )
+                inputOutput
+                |> Array.mapi (fun i (input,output) ->
+                    let newMeasurementParamVal =
+                        measurementParamVal
+                        |> updateParameterValue "technical replicate" (Value.fromOptions (Some (string(i+1))) (None) (None))
+                    Process.create None None (Some measurementProtocol) (Some newMeasurementParamVal) None None None None (Some input) (Some output) None
                 )
                 |> List.ofArray
-                |> List.unzip
-            Process.create None None (Some samplePrepProtocol) (Some samplePrepParamVal) None None None None (Some input) (Some output) None
-        let extractionProcess =
-            let input,output =
-                [|1 .. selectedFiles.Length|]
-                |> Array.map (fun i ->
-                    let factorVal =
-                        match extractionFactorVal with
-                        | Some value -> Some [value.[i-1]]
-                        | None -> None
-                    let processInput =
-                        ProcessInput.Sample (Sample.create None (Some (sprintf "SamplePrepOut_ExtractionIn_%i" i)) (Some extractionCharVal) None None)
-                    let processOutput =
-                        ProcessOutput.Sample (Sample.create None (Some (sprintf "ExtractionOut_MeasurementIn_%i" i)) (Some extractionCharVal) factorVal None)
-                    processInput, processOutput
-                )
-                |> List.ofArray
-                |> List.unzip
-            Process.create None None (Some extractionProtocol) (Some extractionParamVal) None None None None (Some input) (Some output) None
-        let measurementProcess =
-            let input,output =
-                [|1 .. selectedFiles.Length|]
-                |> Array.map (fun i ->
-                    let factorVal =
-                        match measurementFactorVal with
-                        | Some value -> Some [value.[i-1]]
-                        | None -> None
-                    let processInput =
-                        ProcessInput.Sample (Sample.create None (Some (sprintf "ExtractionOut_MeasurementIn_%i" i)) (Some measurementCharVal) None None)
-                    let processOutput =
-                        ProcessOutput.Sample (Sample.create None (Some (sprintf "MeasurementOut_ProcessingIn_%i" i)) (Some measurementCharVal) factorVal None)
-                    processInput, processOutput
-                )
-                |> List.ofArray
-                |> List.unzip
-            Process.create None None (Some measurementProtocol) (Some measurementParamVal) None None None None (Some input) (Some output) None
-        let dataProcessingProcess =
-            let input,output =
-                [|1 .. selectedFiles.Length|]
-                |> Array.map (fun i ->
-                    let factorVal =
-                        match dataProcessingFactorVal with
-                        | Some value -> Some [value.[i-1]]
-                        | None -> None
-                    let processInput =
-                        ProcessInput.Sample (Sample.create None (Some (sprintf "MeasurementOut_ProcessingIn_%i" i)) (Some dataProcessingCharVal) None None)
-                    let processOutput =
-                        ProcessOutput.Sample (Sample.create None (Some selectedFiles.[i-1]) (Some dataProcessingCharVal) factorVal None)
-                    processInput, processOutput
-                )
-                |> List.ofArray
-                |> List.unzip
-            Process.create None None (Some dataProcessingProtocol) (Some dataProcessingParamVal) None None None None (Some input) (Some output) None
-        let updatedProcesses =
-            [samplePrepProcess;extractionProcess;measurementProcess;dataProcessingProcess]
-            |> ISADotNet.XLSX.AssayFile.AnnotationTable.updateSamplesByThemselves
-            |> List.ofSeq
-        Assay.create None None None None None None None None None (Some updatedProcesses) None
-        |> Json.Assay.toFile path
-
-    let createRandomAssays (files: string []) (min: int) (max: int) paths =
-        paths
-        |> Array.map (createRandomAssay files min max)
+            let dataProcessingProcess =
+                let input,output =
+                    set
+                    |> Array.concat
+                    |> Array.mapi (fun i file->
+                        let factorVal =
+                            match dataProcessingFactorVal with
+                            | Some value -> Some [value.[i]]
+                            | None -> None
+                        let processInput =
+                            ProcessInput.Sample (Sample.create None (Some (sprintf "MeasurementOut_ProcessingIn_%i" (i+1))) (Some dataProcessingCharVal) None None)
+                        let processOutput =
+                            ProcessOutput.Sample (Sample.create None (Some file) (Some dataProcessingCharVal) factorVal None)
+                        processInput, processOutput
+                    )
+                    |> List.ofArray
+                    |> List.unzip
+                Process.create None None (Some dataProcessingProtocol) (Some dataProcessingParamVal) None None None None (Some input) (Some output) None
+            let updatedProcesses =
+                [[samplePrepProcess];[extractionProcess];measurementProcess;[dataProcessingProcess]]
+                |> List.concat
+                |> ISADotNet.XLSX.AssayFile.AnnotationTable.updateSamplesByThemselves
+                |> List.ofSeq
+            updatedProcesses
+        )
+        |> List.ofArray
+        |> List.concat
+        |> fun processes -> 
+            Assay.create None None None None None None None None None (Some processes) None
+            |> Json.Assay.toFile path

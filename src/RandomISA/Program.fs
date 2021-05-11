@@ -19,16 +19,11 @@ module console1 =
             Path.Combine(reference, path)
         let getPathRelativeToDir = getRelativePath directory
         let results = parser.Parse argv
-        let i = results.GetResult FileList        |> getPathRelativeToDir
-        let o = results.GetResult OutputDirectory |> getPathRelativeToDir
+        let i = results.GetResult FileList   |> getPathRelativeToDir
+        let o = results.GetResult OutputFile |> getPathRelativeToDir
         let min = results.GetResult MinimalAssayLentgh
         let max = results.GetResult MaxmialAssayLentgh
-        let n = results.GetResult NumberIterations
-        let c =
-            match results.TryGetResult Parallelism_Level with
-            | Some c    -> c
-            | None      -> 1
-        Directory.CreateDirectory(o) |> ignore
+        let t = results.GetResult TechnicalReplicates
         if File.Exists i then
             try
                 printfn "Reading filenames"
@@ -38,15 +33,8 @@ module console1 =
                     |> Series.values
                     |> Array.ofSeq
                     |> Array.distinct
-                let partitionedNumbers =
-                    [|1 .. n|]
-                    |> Array.map (sprintf "Assay_%i.json")
-                    |> Array.splitInto c
                 printfn "Starting random proteomics assay generation"
-                [for i in partitionedNumbers do yield async { return (RandomISA.createRandomAssays fileNames min max (i |> Array.map (getRelativePath o)))}]
-                |> Async.Parallel
-                |> Async.RunSynchronously
-                |> ignore
+                RandomISA.createRandomAssay fileNames min max t o
             with
             | ex -> printfn "%A" ex
         else
