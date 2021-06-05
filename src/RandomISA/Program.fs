@@ -21,9 +21,18 @@ module console1 =
         let results = parser.Parse argv
         let i = results.GetResult FileList   |> getPathRelativeToDir
         let o = results.GetResult OutputFile |> getPathRelativeToDir
-        let min = results.GetResult MinimalAssayLentgh
-        let max = results.GetResult MaxmialAssayLentgh
+        let n = results.GetResult NumberDifferentConditions
         let t = results.GetResult TechnicalReplicates
+        let map =
+            let path = results.TryGetResult TermMap
+            match path with
+            | Some path -> Some (getPathRelativeToDir path)
+            | None      -> None
+        let generateMap =
+            let path = results.TryGetResult GenerateTermMap
+            match path with
+            | Some path -> Some (getPathRelativeToDir path)
+            | None      -> None
         if File.Exists i then
             try
                 printfn "Reading filenames"
@@ -34,7 +43,7 @@ module console1 =
                     |> Array.ofSeq
                     |> Array.distinct
                 printfn "Starting random proteomics assay generation"
-                RandomISA.createRandomAssay fileNames min max t o
+                RandomISA.createRandomAssay fileNames n t o map generateMap
             with
             | ex -> printfn "%A" ex
         else

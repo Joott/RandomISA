@@ -111,7 +111,8 @@ module RandomISA =
     let getAllChildTerms (param: ParameterInfo) =
         let request = sprintf """[{"Name": "%s","TermAccession": "%s"}]""" param.Term.Name param.Term.TermAccessionNumber
         FSharp.Data.Http.RequestString(
-            "https://swate.denbi.uni-tuebingen.de/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
+            "https://localhost:3000/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
+            //"https://swate.denbi.uni-tuebingen.de/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
             httpMethod = "POST",
             body = FSharp.Data.TextRequest request
         )
@@ -126,15 +127,56 @@ module RandomISA =
             | Some x -> Value.fromOptions (Some x.Name) (Some x.Accession) (Some (x.Accession.Split(':') |> Array.head))
             | None -> None
 
-    let childTermMap =
-        List.concat[proteomicsSamplePreparation; proteomicsExtraction; proteomicsMeasurement; proteomicsDataProcessing]
-        |> List.map (fun x ->
-            x,
-            x |> getAllChildTerms
-        )
-        |> Map.ofList
+    let getChildTermMap (termMap: string option) (generateTermMap: string option) =
+        match termMap, generateTermMap with
+        | Some map, Some out ->
+            let jsonString =
+                System.IO.File.ReadAllText map
+            let outMap =
+                jsonString
+                |> JsonConvert.DeserializeObject<(ParameterInfo * CvFromAPI[]) list>
+                |> Map.ofList
+            let serializeMap =
+                List.concat[proteomicsSamplePreparation; proteomicsExtraction; proteomicsMeasurement; proteomicsDataProcessing]
+                |> List.map (fun x ->
+                    x,
+                    x |> getAllChildTerms
+                )
+            serializeMap
+            |> JsonConvert.SerializeObject
+            |> fun str -> System.IO.File.WriteAllText (out, str)
+            outMap
+        | Some map, None ->
+            let jsonString =
+                System.IO.File.ReadAllText map
+            let outMap =
+                jsonString
+                |> JsonConvert.DeserializeObject<(ParameterInfo * CvFromAPI[]) list>
+                |> Map.ofList
+            outMap
+        | None, Some out ->
+            let serializeMap =
+                List.concat[proteomicsSamplePreparation; proteomicsExtraction; proteomicsMeasurement; proteomicsDataProcessing]
+                |> List.map (fun x ->
+                    x,
+                    x |> getAllChildTerms
+                )
+            serializeMap
+            |> JsonConvert.SerializeObject
+            |> fun str -> System.IO.File.WriteAllText (out, str)
+            serializeMap
+            |> Map.ofList
+        | None, None ->
+            let map =
+                List.concat[proteomicsSamplePreparation; proteomicsExtraction; proteomicsMeasurement; proteomicsDataProcessing]
+                |> List.map (fun x ->
+                    x,
+                    x |> getAllChildTerms
+                )
+                |> Map.ofList
+            map
     
-    let createRandomValues (paramInfos: ParameterInfo list) =
+    let createRandomValues (paramInfos: ParameterInfo list) (childTermMap: Map<ParameterInfo, CvFromAPI[]>) =
         let random = new System.Random()
         let getRandomWithRange min max=
             random.NextDouble() * (max - min) + min
@@ -291,24 +333,24 @@ module RandomISA =
                 
         protocol, parameterValues, characteristicValues, factorValues
 
-    let createRandomAssay (files: string []) (min: int) (max: int) (technicalReplicates: int) path =
-        let random = new System.Random()
+    let createRandomAssay (files: string []) (n: int) (technicalReplicates: int) path (termMap: string option) (generateTermMap: string option) =
         let partitionedFiles =
             files
             |> Array.shuffleFisherYates
             |> Array.chunkBySize technicalReplicates
             |> Array.filter (fun x -> x.Length = technicalReplicates)
-            |> Array.splitInto (random.Next(min,max))
+            |> Array.splitInto n
+        let childTermMap = getChildTermMap termMap generateTermMap
         partitionedFiles
         |> Array.map (fun set ->
             let samplePrepProtocol, samplePrepParamVal, samplePrepCharVal, samplePrepFactorVal =
-                createRandomValues proteomicsSamplePreparation
+                createRandomValues proteomicsSamplePreparation childTermMap
             let extractionProtocol, extractionParamVal, extractionCharVal, extractionFactorVal =
-                createRandomValues proteomicsExtraction
+                createRandomValues proteomicsExtraction childTermMap
             let measurementProtocol, measurementParamVal, measurementCharVal, measurementFactorVal =
-                createRandomValues proteomicsMeasurement
+                createRandomValues proteomicsMeasurement childTermMap
             let dataProcessingProtocol, dataProcessingParamVal, dataProcessingCharVal, dataProcessingFactorVal =
-                createRandomValues proteomicsDataProcessing
+                createRandomValues proteomicsDataProcessing childTermMap
             let samplePrepProcess =
                 let input,output =
                     [|1 .. set.Length|]
