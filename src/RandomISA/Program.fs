@@ -33,15 +33,12 @@ module console1 =
             match path with
             | Some path -> Some (getPathRelativeToDir path)
             | None      -> None
-        if File.Exists i then
+        if Directory.Exists i then
             try
                 printfn "Reading filenames"
                 let fileNames: string [] =
-                    Frame.ReadCsv (path = i, hasHeaders = true, separators = "\t")
-                    |> Frame.getCol "ms_run"
-                    |> Series.values
-                    |> Array.ofSeq
-                    |> Array.distinct
+                    Directory.GetFiles(i, "*.csv")
+                    |> Array.map (IO.Path.GetFileNameWithoutExtension)
                 printfn "Starting random proteomics assay generation"
                 RandomISA.createRandomAssay fileNames n t o map generateMap
             with
