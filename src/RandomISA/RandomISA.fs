@@ -111,8 +111,8 @@ module RandomISA =
     let getAllChildTerms (param: ParameterInfo) =
         let request = sprintf """[{"Name": "%s","TermAccession": "%s"}]""" param.Term.Name param.Term.TermAccessionNumber
         FSharp.Data.Http.RequestString(
-            "https://localhost:3000/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
-            //"https://swate.denbi.uni-tuebingen.de/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
+            //"https://localhost:3000/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
+            "https://swate.denbi.uni-tuebingen.de/api/IAnnotatorAPIv1/getAllTermsByParentTerm",
             httpMethod = "POST",
             body = FSharp.Data.TextRequest request
         )
