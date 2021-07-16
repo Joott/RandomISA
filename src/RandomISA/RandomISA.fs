@@ -92,7 +92,7 @@ module RandomISA =
         ]
 
     let createParameter (parameterInfo: ParameterInfo) =
-        ProtocolParameter.fromString parameterInfo.Term.Name parameterInfo.Term.TermSourceRef parameterInfo.Term.TermAccessionNumber
+        ProtocolParameter.fromString parameterInfo.Term.Name parameterInfo.Term.TermAccessionNumber parameterInfo.Term.TermSourceRef
     
     let createParameterValues (parameter: ProtocolParameter) (value: Value option) (unitOntology: OntologyAnnotation option)=
             ProcessParameterValue.create  (Some parameter) value unitOntology
