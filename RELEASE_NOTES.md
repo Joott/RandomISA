@@ -1,3 +1,7 @@
+#### 0.0.4 - Friday, July 16, 2021
+* Reenable connection to Swate API
+* Fix error in protocol parameters
+
 #### 0.0.3 - Saturday, June 5, 2021
 * Fix error in file input
 
