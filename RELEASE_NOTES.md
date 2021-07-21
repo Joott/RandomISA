@@ -1,3 +1,6 @@
+#### 0.0.5 - Wednesday, July 21, 2021
+* Add option to return output in Investigation format
+
 #### 0.0.4 - Friday, July 16, 2021
 * Reenable connection to Swate API
 * Fix error in protocol parameters

@@ -23,6 +23,7 @@ module console1 =
         let o = results.GetResult OutputFile |> getPathRelativeToDir
         let n = results.GetResult NumberDifferentConditions
         let t = results.GetResult TechnicalReplicates
+        let f = results.Contains Investigation
         let map =
             let path = results.TryGetResult TermMap
             match path with
@@ -40,7 +41,7 @@ module console1 =
                     Directory.GetFiles(i, "*.csv")
                     |> Array.map (IO.Path.GetFileNameWithoutExtension)
                 printfn "Starting random proteomics assay generation"
-                RandomISA.createRandomAssay fileNames n t o map generateMap
+                RandomISA.createRandomAssay fileNames n t o map generateMap f
             with
             | ex -> printfn "%A" ex
         else

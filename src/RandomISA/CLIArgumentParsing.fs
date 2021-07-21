@@ -11,7 +11,7 @@ module CLIArgumentParsing =
         | [<Mandatory>] [<Unique>] [<AltCommandLine("-t")>]   TechnicalReplicates       of number:int
         | [<Unique>] [<AltCommandLine("-m")>]                 TermMap                   of path: string
         | [<Unique>] [<AltCommandLine("-g")>]                 GenerateTermMap           of path: string
-
+        | [<Unique>] [<AltCommandLine("-f")>]                 Investigation
     with
         interface IArgParserTemplate with
             member s.Usage =
@@ -22,3 +22,4 @@ module CLIArgumentParsing =
                 | TechnicalReplicates _        -> "specify the number of assay files generated"
                 | TermMap _                    -> "specify the path of the term map"
                 | GenerateTermMap _            -> "specify the output path of the term map"
+                | Investigation                -> "return process sequence in ISA-JSON Investigation file"

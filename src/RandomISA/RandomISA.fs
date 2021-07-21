@@ -333,7 +333,7 @@ module RandomISA =
                 
         protocol, parameterValues, characteristicValues, factorValues
 
-    let createRandomAssay (files: string []) (n: int) (technicalReplicates: int) path (termMap: string option) (generateTermMap: string option) =
+    let createRandomAssay (files: string []) (n: int) (technicalReplicates: int) path (termMap: string option) (generateTermMap: string option) (asInvestigation: bool) =
         let partitionedFiles =
             files
             |> Array.shuffleFisherYates
@@ -443,6 +443,12 @@ module RandomISA =
         )
         |> List.ofArray
         |> List.concat
-        |> fun processes -> 
-            Assay.create None None None None None None None None None (Some processes) None
-            |> Json.Assay.toFile path
+        |> fun processes ->
+            let assay = Assay.create None None None None None None None None None (Some processes) None
+            if asInvestigation then
+                let study = Study.create None None None None None None None None None None None None None (Some [assay]) None None None None
+                Investigation.create None None None None None None None None None None (Some [study]) None []
+                |> Json.Investigation.toFile path
+            else
+                assay
+                |> Json.Assay.toFile path
